@@ -4,16 +4,17 @@ import (
 	"context"
 	"deli-ponto/configuration"
 	"deli-ponto/model"
-	"log"
+	"errors"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
-	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/beevik/ntp"
 )
 
+// InsertPunch insere um registro de ponto no banco de dados com o nome do colaborador e a data e hora atual
 func InsertPunch(dynamoClient *dynamodb.Client, nome string, logs configuration.GoAppTools) {
 
 	//o codigo esta indo no observatorio nacional pegar a data e hora
@@ -40,36 +41,25 @@ func InsertPunch(dynamoClient *dynamodb.Client, nome string, logs configuration.
 	configuration.Check(err, logs)
 }
 
-func SelectPunch(nome string, dynamoClient dynamodb.Client, app configuration.GoAppTools) model.Punch {
-	// Build the query input
-	filter := expression.Key("Nome").Equal(expression.Value(nome))
-	proj := expression.NamesList(expression.Name("Nome"), expression.Name("Data"))
-	expr, err := expression.NewBuilder().WithKeyCondition(filter).WithProjection(proj).Build()
-	configuration.Check(err, app)
-
-	result, err := dynamoClient.Query(context.Background(), &dynamodb.QueryInput{
+// SelectPunch faz uma query no banco de dados e retorna o ultimo registro de ponto do colaborador
+func SelectPunch(nome string, dynamoClient dynamodb.Client, logs configuration.GoAppTools) model.Punch {
+	input := &dynamodb.QueryInput{
 		TableName:                 aws.String("PontoColaborador"),
-		FilterExpression:          expr.Filter(),
-		KeyConditionExpression:    expr.KeyCondition(),
-		ExpressionAttributeNames:  expr.Names(),
-		ExpressionAttributeValues: expr.Values(),
-		ProjectionExpression:      expr.Projection(),
-		ScanIndexForward:          aws.Bool(true),
-	})
-	configuration.Check(err, app)
-	//
-	var punch model.Punch
-	for _, i := range result.Items {
-		item := model.Punch{}
-
-		err = attributevalue.UnmarshalMap(i, &item)
-
-		if err != nil {
-			log.Fatalf("Got error unmarshalling: %s", err)
-
-		}
-		punch = item
+		ScanIndexForward:          aws.Bool(false),
+		Limit:                     aws.Int32(1),
+		KeyConditionExpression:    aws.String("Data = :data"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{":data": &types.AttributeValueMemberS{Value: time.Now().Format(time.RFC3339)}},
 	}
-
+	resp, err := dynamoClient.Query(context.Background(), input)
+	configuration.Check(err, logs)
+	if len(resp.Items) == 0 {
+		err = errors.New("nao foi encontrado nenhum registro")
+		configuration.Check(err, logs)
+		return model.Punch{}
+	}
+	punch := model.Punch{
+		Nome: resp.Items[0]["Nome"].(*types.AttributeValueMemberS).Value,
+		Data: resp.Items[0]["Data"].(*types.AttributeValueMemberS).Value,
+	}
 	return punch
 }
