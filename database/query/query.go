@@ -44,12 +44,18 @@ func InsertPunch(dynamoClient *dynamodb.Client, nome string, logs configuration.
 // SelectPunch faz uma query no banco de dados e retorna o ultimo registro de ponto do colaborador
 func SelectPunch(nome string, dynamoClient dynamodb.Client, logs configuration.GoAppTools) model.Punch {
 	input := &dynamodb.QueryInput{
-		TableName:                 aws.String("PontoColaborador"),
-		ScanIndexForward:          aws.Bool(false),
-		Limit:                     aws.Int32(1),
-		KeyConditionExpression:    aws.String("Data = :data"),
-		ExpressionAttributeValues: map[string]types.AttributeValue{":data": &types.AttributeValueMemberS{Value: time.Now().Format(time.RFC3339)}},
+		TableName:              aws.String("PontoColaborador"),
+		ScanIndexForward:       aws.Bool(false),
+		Limit:                  aws.Int32(1),
+		KeyConditionExpression: aws.String("#nome = :n"),
+		ExpressionAttributeNames: map[string]string{
+			"#nome": "Nome",
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":n": &types.AttributeValueMemberS{Value: nome},
+		},
 	}
+
 	resp, err := dynamoClient.Query(context.Background(), input)
 	configuration.Check(err, logs)
 	if len(resp.Items) == 0 {
@@ -57,9 +63,11 @@ func SelectPunch(nome string, dynamoClient dynamodb.Client, logs configuration.G
 		configuration.Check(err, logs)
 		return model.Punch{}
 	}
+
 	punch := model.Punch{
 		Nome: resp.Items[0]["Nome"].(*types.AttributeValueMemberS).Value,
 		Data: resp.Items[0]["Data"].(*types.AttributeValueMemberS).Value,
 	}
+
 	return punch
 }
