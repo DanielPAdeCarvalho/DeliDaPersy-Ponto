@@ -18,6 +18,7 @@ var (
 	logs         configuration.GoAppTools
 )
 
+// inLambda verifica se o codigo esta rodando no lambda ou localmente e retorna um booleano
 func inLambda() bool {
 	if lambdaTaskRoot := os.Getenv("LAMBDA_TASK_ROOT"); lambdaTaskRoot != "" {
 		return true
@@ -25,6 +26,7 @@ func inLambda() bool {
 	return false
 }
 
+// setupRouter configura as rotas da aplicação e retorna um objeto do tipo gin.Engine
 func setupRouter() *gin.Engine {
 	appRouter := gin.New()
 	appRouter.GET("/", func(ctx *gin.Context) {
@@ -50,7 +52,6 @@ func setupRouter() *gin.Engine {
 // para criar o zip do projeto comando:
 //
 // zip lambda.zip ponto-api
-// .
 func main() {
 	InfoLogger := log.New(os.Stdout, " ", log.LstdFlags|log.Lshortfile)
 	ErrorLogger := log.New(os.Stdout, " ", log.LstdFlags|log.Lshortfile)
@@ -64,10 +65,8 @@ func main() {
 	configuration.Check(err, logs)
 
 	if inLambda() {
-
 		log.Fatal(gateway.ListenAndServe(":8080", setupRouter()))
 	} else {
-
 		log.Fatal(http.ListenAndServe(":8080", setupRouter()))
 	}
 }
