@@ -38,6 +38,12 @@ func setupRouter() *gin.Engine {
 		handlers.GetPunches(ctx, dynamoClient, logs)
 	})
 
+	appRouter.GET("/report/:nome/:mes", func(ctx *gin.Context) {
+		nome := ctx.Param("nome")
+		mes := ctx.Param("mes")
+		handlers.GetReport(ctx, dynamoClient, logs, nome, mes)
+	})
+
 	appRouter.POST("/ponto/:nome", func(ctx *gin.Context) {
 		nome := ctx.Param("nome")
 		handlers.PostPunch(nome, ctx, dynamoClient, logs)

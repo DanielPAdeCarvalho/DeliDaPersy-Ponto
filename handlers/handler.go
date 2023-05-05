@@ -5,6 +5,8 @@ import (
 	"deli-ponto/database/query"
 	"deli-ponto/model"
 	"net/http"
+	"strconv"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/gin-gonic/gin"
@@ -21,6 +23,18 @@ func GetPunches(c *gin.Context, dynamoClient *dynamodb.Client, logs configuratio
 	punches = append(punches, ponto)
 	c.IndentedJSON(http.StatusOK, punches)
 
+}
+
+func GetReport(c *gin.Context, dynamoClient *dynamodb.Client, logs configuration.GoAppTools, nome string, mes string) {
+	if nome == "Bianca" {
+		nome = "Bia"
+	} else if nome == "Patricia" {
+		nome = "paty"
+	}
+	ano := time.Now().Year()
+	periodo := strconv.Itoa(ano) + "-" + mes
+	report := query.SelectReport(nome, periodo, *dynamoClient, logs)
+	c.IndentedJSON(http.StatusOK, report)
 }
 
 func ResponseOK(c *gin.Context, app configuration.GoAppTools) {

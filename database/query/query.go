@@ -71,3 +71,37 @@ func SelectPunch(nome string, dynamoClient dynamodb.Client, logs configuration.G
 
 	return punch
 }
+
+// SelectReport faz uma query no banco de dados e retorna todos os registros de ponto do colaborador no mes informado
+func SelectReport(nome string, periodo string, dynamoClient dynamodb.Client, logs configuration.GoAppTools) []model.Punch {
+	ctx := context.Background()
+
+	queryInput := &dynamodb.QueryInput{
+		TableName:              aws.String("PontoColaborador"),
+		KeyConditionExpression: aws.String("#Nome = :nome AND begins_with(#Data, :mes)"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":nome": &types.AttributeValueMemberS{Value: nome},
+			":mes":  &types.AttributeValueMemberS{Value: periodo},
+		},
+		ExpressionAttributeNames: map[string]string{
+			"#Nome": "Nome",
+			"#Data": "Data",
+		},
+	}
+	queryOutput, err := dynamoClient.Query(ctx, queryInput)
+	configuration.Check(err, logs)
+
+	punchs := make([]model.Punch, 0)
+	for _, item := range queryOutput.Items {
+		punch := model.Punch{}
+		err := attributevalue.UnmarshalMap(item, &punch)
+		if err != nil {
+			// Handle the error
+			configuration.Check(err, logs)
+			continue
+		}
+		punchs = append(punchs, punch)
+	}
+
+	return punchs
+}
